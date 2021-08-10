@@ -1,16 +1,17 @@
 module Main (main) where
 
+import Text.Pandoc hiding (handleError)
 import Network.XmlRpc.Internals
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse
-import Data.IORef
-import System.IO
+
+import Data.IORef (IORef (), newIORef, readIORef, writeIORef)
+import System.IO (hSetBuffering, stdout, BufferMode (LineBuffering))
 import Text.XML.HaXml.XmlContent (fromXml)
 import Text.XML.HaXml.Lex (Token (), xmlLex)
 import Text.XML.HaXml.Types (Document (..))
 import Text.XML.HaXml.Posn (Posn ())
 import Text.ParserCombinators.Poly.State (stGet)
 import Control.Monad.Except (liftEither)
-import Text.Pandoc hiding (handleError)
 import Control.Monad (void)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.Text as T
