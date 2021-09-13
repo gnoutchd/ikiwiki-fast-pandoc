@@ -29,6 +29,7 @@ dependencies:
 - HaXml
 - polyparse
 - filepath
+- split
 
 executables:
   fast-pandoc:

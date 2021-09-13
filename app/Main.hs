@@ -1,58 +1,19 @@
 module Main (main) where
 
 import Text.Pandoc hiding (handleError)
-import Network.XmlRpc.Internals
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse
 
-import Data.IORef (IORef (), newIORef, readIORef, writeIORef)
 import System.IO (hSetBuffering, stdout, BufferMode (LineBuffering))
-import Text.XML.HaXml.XmlContent (fromXml)
-import Text.XML.HaXml.Lex (Token (), xmlLex)
-import Text.XML.HaXml.Types (Document (..))
+import Text.XML.HaXml.Lex (xmlLex)
 import Text.XML.HaXml.Posn (Posn ())
 import Text.ParserCombinators.Poly.State (stGet)
-import Control.Monad.Except (liftEither)
-import Control.Monad (void)
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.Text as T
-
-type Stream = IORef [Token]
-type Callback = MethodCall -> IO MethodResponse
-
-main :: IO ()
-main = do
-  hSetBuffering stdout LineBuffering
-  handleCalls =<< newIORef =<< xmlLex "<stdin>" <$> getContents
-
-handleCalls :: Stream -> IO ()
-handleCalls stream = do
-  let callback = callbackWith stream
-  mCall <- readCall stream
-  case mCall of
-    Nothing -> return ()
-    Just call -> do
-      BSL8.putStrLn . renderResponse =<< case call of
-        MethodCall "import" [] -> handleImportCall callback
-        MethodCall "htmlize" args -> handleHtmlizeCall args
-        _ -> return (Fault 0 "Unknown method")
-      handleCalls stream
-
-readCall :: Stream -> IO (Maybe MethodCall)
-readCall streamR = do
-  stream <- readIORef streamR
-  case stream of
-    [] -> return Nothing
-    _ -> Just <$> do
-      let (xml, stream') = xmlParseWith rpcMessage stream
-      writeIORef streamR stream'
-      handleError fail $ fromXRMethodCall =<< liftEither (fromXml =<< xml)
-
-callbackWith :: Stream -> Callback
-callbackWith streamR call = do
-  BSL8.putStrLn $ renderCall call
-  (xml, stream') <- xmlParseWith rpcMessage <$> readIORef streamR
-  writeIORef streamR stream'
-  handleError fail $ fromXRMethodResponse =<< liftEither (fromXml =<< xml)
+import Data.List.Split (chop)
+import qualified Network.XmlRpc.DTD_XMLRPC as XR
+import Text.XML.HaXml.XmlContent (Document (..), toXml, fromXml)
+import qualified Text.XML.HaXml.ByteStringPP as XPP
+import Text.XML.HaXml.Escape (xmlEscape, stdXmlEscaper)
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
 -- the top-level element
@@ -63,23 +24,73 @@ rpcMessage = do
   (_,ge) <- stGet
   return $ Document p ge e []
 
-handleImportCall :: Callback -> IO MethodResponse
-handleImportCall callback = do
-  void $ callback $ MethodCall "hook" 
-    [ ValueString "type", ValueString "htmlize"
-    , ValueString "id",   ValueString "mdwn"
-    , ValueString "call", ValueString "htmlize"]
-  return $ Return ValueNil
+escapeDoc :: Document i -> Document i
+escapeDoc (Document p s e m) = Document p s (xmlEscape stdXmlEscaper e) m
 
-namedVals :: [Value] -> [(String, Value)]
-namedVals ((ValueString key):val:xs) = (key, val) : namedVals xs
-namedVals [] = []
-namedVals _ = error "arguments not in IkiWiki named-value form"
+rpcIn :: IO [Document Posn]
+rpcIn = map (either error id) . chop (xmlParseWith rpcMessage) .
+  xmlLex "<stdin>" <$> getContents
 
-handleHtmlizeCall :: [Value] -> IO MethodResponse
-handleHtmlizeCall args = 
-  either (fail . show) return . runPure $ do
-    pdoc <- readMarkdown readOpts (T.pack mdwn)
-    Return . ValueString . T.unpack <$> writeHtml5String def pdoc
-  where Just (ValueString mdwn) = lookup "content" (namedVals args)
-        readOpts = def {readerExtensions = pandocExtensions}
+rpcOut :: [Document ()] -> IO ()
+rpcOut = mapM_ $ BSL8.putStrLn . XPP.document . escapeDoc
+
+main :: IO ()
+main = do
+  hSetBuffering stdout LineBuffering
+  rpcOut . plugin =<< rpcIn
+
+plugin :: [Document Posn] -> [Document ()]
+plugin [] = []
+plugin (i:is) = case parseRpcCall i of
+  Just ("import", _) -> (hookCall :) $ case is of
+    i':is' | isSuccessResponse i' -> importResponse : plugin is'
+    _ -> []
+  Just ("htmlize", args) -> rpcHtmlize args : plugin is
+  _ -> []
+
+type RpcArgs = [(String, XR.Value_)]
+
+parseRpcCall :: Document Posn -> Maybe (String, RpcArgs)
+parseRpcCall doc = case fromXml doc of
+  Right (XR.MethodCall (XR.MethodName method) mArgs) ->
+    Just . (,) method $ case mArgs of
+      Just (XR.Params params) -> flattenParams params
+      Nothing -> []
+  _ -> Nothing
+  where
+  flattenParams [] = []
+  flattenParams ( XR.Param (XR.Value [XR.Value_AString (XR.AString key)]) 
+                : XR.Param (XR.Value [val]) 
+                : ps
+                ) = (key, val) : flattenParams ps
+  flattenParams _ = error "args not in named-value format"
+
+hookCall :: Document ()
+hookCall = toXml False . XR.MethodCall (XR.MethodName "hook") . Just .
+  XR.Params . map stringParam $
+    [ "type", "htmlize"
+    , "id", "mdwn"
+    , "call", "htmlize"
+    ]
+  where stringParam = XR.Param . XR.Value . (:[]) . XR.Value_AString . 
+          XR.AString
+
+isSuccessResponse :: Document Posn -> Bool
+isSuccessResponse doc = case fromXml doc of
+  Right (XR.MethodResponseParams _) -> True
+  _ -> False
+
+importResponse :: Document ()
+importResponse = toXml False . XR.MethodResponseParams . XR.Params . (:[]) .
+  XR.Param . XR.Value . (:[]) . XR.Value_Nil $ XR.Nil ()
+
+rpcHtmlize :: RpcArgs -> Document ()
+rpcHtmlize args = toXml False . XR.MethodResponseParams . XR.Params . (:[]) .
+  XR.Param . XR.Value . (:[]) . XR.Value_AString . XR.AString $ htmlize mdwn
+  where Just (XR.Value_AString (XR.AString mdwn)) = lookup "content" args
+
+htmlize :: String -> String
+htmlize mdwn = either (error . show) id . runPure $ do
+  pdoc <- readMarkdown readOpts (T.pack mdwn)
+  T.unpack <$> writeHtml5String def pdoc
+  where readOpts = def {readerExtensions = pandocExtensions}
