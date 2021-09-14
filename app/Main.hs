@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-full-laziness #-}
 module Main (main) where
 
-import Text.Pandoc hiding (handleError)
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse
 
 import System.IO (hFlush, stdout)
@@ -15,6 +14,7 @@ import qualified Network.XmlRpc.DTD_XMLRPC as XR
 import Text.XML.HaXml.XmlContent (Document (..), toXml, fromXml)
 import qualified Text.XML.HaXml.ByteStringPP as XPP
 import Text.XML.HaXml.Escape (xmlEscape, stdXmlEscaper)
+import qualified Text.Pandoc as P
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
 -- the top-level element
@@ -89,7 +89,7 @@ rpcHtmlize args = toXml False . XR.MethodResponseParams . XR.Params . (:[]) .
   where Just (XR.Value_AString (XR.AString mdwn)) = lookup "content" args
 
 htmlize :: String -> String
-htmlize mdwn = either (error . show) id . runPure $ do
-  pdoc <- readMarkdown readOpts (T.pack mdwn)
-  T.unpack <$> writeHtml5String def pdoc
-  where readOpts = def {readerExtensions = pandocExtensions}
+htmlize = either (error . show) T.unpack . P.runPure .
+  (P.writeHtml5String P.def =<<) . P.readMarkdown readOpts . T.pack .
+  filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f'))
+  where readOpts = P.def {P.readerExtensions = P.pandocExtensions}
