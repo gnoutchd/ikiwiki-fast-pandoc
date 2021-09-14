@@ -3,7 +3,7 @@ module Main (main) where
 import Text.Pandoc hiding (handleError)
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse
 
-import System.IO (hSetBuffering, stdout, BufferMode (LineBuffering))
+import System.IO (hFlush, stdout)
 import Text.XML.HaXml.Lex (xmlLex)
 import Text.XML.HaXml.Posn (Posn ())
 import Text.ParserCombinators.Poly.State (stGet)
@@ -32,12 +32,10 @@ rpcIn = map (either error id) . chop (xmlParseWith rpcMessage) .
   xmlLex "<stdin>" <$> getContents
 
 rpcOut :: [Document ()] -> IO ()
-rpcOut = mapM_ $ BSL8.putStrLn . XPP.document . escapeDoc
+rpcOut = mapM_ $ (<*) (hFlush stdout) . BSL8.putStr . XPP.document . escapeDoc
 
 main :: IO ()
-main = do
-  hSetBuffering stdout LineBuffering
-  rpcOut . plugin =<< rpcIn
+main = rpcOut . plugin =<< rpcIn
 
 plugin :: [Document Posn] -> [Document ()]
 plugin [] = []
