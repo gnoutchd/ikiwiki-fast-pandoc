@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-full-laziness #-}
 module Main (main) where
 
 import Text.Pandoc hiding (handleError)
