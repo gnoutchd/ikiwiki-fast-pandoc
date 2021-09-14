@@ -33,7 +33,7 @@ rpcIn = map (either error id) . chop (xmlParseWith rpcMessage) .
   xmlLex "<stdin>" <$> getContents
 
 rpcOut :: [Document ()] -> IO ()
-rpcOut = mapM_ $ (<*) (hFlush stdout) . BSL8.putStr . XPP.document . escapeDoc
+rpcOut = mapM_ $ (*> hFlush stdout) . BSL8.putStr . XPP.document . escapeDoc
 
 main :: IO ()
 main = rpcOut . plugin =<< rpcIn
