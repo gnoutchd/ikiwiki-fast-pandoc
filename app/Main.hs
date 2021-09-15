@@ -1,4 +1,13 @@
 {-# OPTIONS_GHC -fno-full-laziness #-}
+
+-- Pandoc Markdown rendering for IkiWiki, implemented as a "external" (XML-RPC)
+-- plugin.
+--
+-- Copyright (C) 2021 Software Freedom Law Center
+--
+-- Licensed under the terms of the GNU General Public Licence (GPL) version 3
+-- or (at your option) any later version.
+
 module Main (main) where
 
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse

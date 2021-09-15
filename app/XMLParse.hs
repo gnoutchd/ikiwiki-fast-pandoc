@@ -1,6 +1,21 @@
 {-# OPTIONS -cpp #-}
--- A copy of Text.XML.HaXml.Parse with seemingly obvious additions to the
--- export list
+
+-- A copy of Text.XML.HaXml.Parse from HaXml-1.25.5, with seemingly obvious
+-- additions to the export list.
+--
+-- (c) copyright 1998-1999    Malcolm Wallace and Colin Runciman
+-- (c) copyright 2000-2013    Malcolm Wallace
+-- (c) copyright 2021         Software Freedom Law Center
+-- Licensed under the terms of the GNU Lesser General Public Licence (LGPL)
+-- version 2.1.
+--
+-- As a relaxation of clause 6 of the LGPL, the copyright holders of this
+-- library give permission to use, copy, link, modify, and distribute,
+-- binary-only object-code versions of an executable linked with the original
+-- unmodified Library, without requiring the supply of any mechanism to modify
+-- or replace the Library and relink (clauses 6a, 6b, 6c, 6d, 6e), provided
+-- that all the other terms of clause 6 are complied with.
+
 module XMLParse
   (
   -- * Parse a whole document
