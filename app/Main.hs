@@ -7,14 +7,15 @@ import System.IO (hFlush, stdout)
 import Text.XML.HaXml.Lex (xmlLex)
 import Text.XML.HaXml.Posn (Posn ())
 import Text.ParserCombinators.Poly.State (stGet)
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSL8
 import qualified Data.Text as T
 import Data.List.Split (chop)
 import qualified Network.XmlRpc.DTD_XMLRPC as XR
-import Text.XML.HaXml.XmlContent (Document (..), toXml, fromXml)
-import qualified Text.XML.HaXml.ByteStringPP as XPP
-import Text.XML.HaXml.Escape (xmlEscape, xmlUnEscape, stdXmlEscaper)
+import Text.XML.HaXml.XmlContent (Document (..), fromXml)
+import Text.XML.HaXml.Escape (xmlUnEscape, stdXmlEscaper)
 import qualified Text.Pandoc as P
+import qualified Network.XmlRpc.Internals as XRI
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
 -- the top-level element
@@ -25,20 +26,17 @@ rpcMessage = do
   (_,ge) <- stGet
   return $ Document p ge e []
 
-escapeDoc :: Document i -> Document i
-escapeDoc (Document p s e m) = Document p s (xmlEscape stdXmlEscaper e) m
-
 rpcIn :: IO [Document Posn]
 rpcIn = map (either error id) . chop (xmlParseWith rpcMessage) .
   xmlLex "<stdin>" <$> getContents
 
-rpcOut :: [Document ()] -> IO ()
-rpcOut = mapM_ $ (*> hFlush stdout) . BSL8.putStr . XPP.document . escapeDoc
+bslOut :: [BSL.ByteString] -> IO ()
+bslOut = mapM_ $ (*> hFlush stdout) . BSL8.putStrLn
 
 main :: IO ()
-main = rpcOut . plugin =<< rpcIn
+main = bslOut . plugin =<< rpcIn
 
-plugin :: [Document Posn] -> [Document ()]
+plugin :: [Document Posn] -> [BSL.ByteString]
 plugin [] = []
 plugin (i:is) = case parseRpcCall i of
   Just ("import", _) -> (hookCall :) $ case is of
@@ -67,28 +65,24 @@ parseRpcCall doc = case fromXml (unEscapeDoc doc) of
 unEscapeDoc :: Document i -> Document i
 unEscapeDoc (Document p s e m) = Document p s (xmlUnEscape stdXmlEscaper e) m
 
-hookCall :: Document ()
-hookCall = toXml False . XR.MethodCall (XR.MethodName "hook") . Just .
-  XR.Params . map stringParam $
+hookCall :: BSL.ByteString
+hookCall = XRI.renderCall . XRI.MethodCall "hook" . map XRI.ValueString $
     [ "type", "htmlize"
     , "id", "mdwn"
     , "call", "htmlize"
     ]
-  where stringParam = XR.Param . XR.Value . (:[]) . XR.Value_AString . 
-          XR.AString
 
 isSuccessResponse :: Document Posn -> Bool
 isSuccessResponse doc = case fromXml doc of
   Right (XR.MethodResponseParams _) -> True
   _ -> False
 
-importResponse :: Document ()
-importResponse = toXml False . XR.MethodResponseParams . XR.Params . (:[]) .
-  XR.Param . XR.Value . (:[]) . XR.Value_Nil $ XR.Nil ()
+importResponse :: BSL.ByteString
+importResponse = XRI.renderResponse $ XRI.Return XRI.ValueNil
 
-rpcHtmlize :: RpcArgs -> Document ()
-rpcHtmlize args = toXml False . XR.MethodResponseParams . XR.Params . (:[]) .
-  XR.Param . XR.Value . (:[]) . XR.Value_AString . XR.AString $ htmlize mdwn
+rpcHtmlize :: RpcArgs -> BSL.ByteString
+rpcHtmlize args = XRI.renderResponse . XRI.Return . XRI.ValueString .
+  htmlize $ mdwn
   where Just (XR.Value_AString (XR.AString mdwn)) = lookup "content" args
 
 htmlize :: String -> String
