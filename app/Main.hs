@@ -13,7 +13,7 @@ import Data.List.Split (chop)
 import qualified Network.XmlRpc.DTD_XMLRPC as XR
 import Text.XML.HaXml.XmlContent (Document (..), toXml, fromXml)
 import qualified Text.XML.HaXml.ByteStringPP as XPP
-import Text.XML.HaXml.Escape (xmlEscape, stdXmlEscaper)
+import Text.XML.HaXml.Escape (xmlEscape, xmlUnEscape, stdXmlEscaper)
 import qualified Text.Pandoc as P
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
@@ -50,7 +50,7 @@ plugin (i:is) = case parseRpcCall i of
 type RpcArgs = [(String, XR.Value_)]
 
 parseRpcCall :: Document Posn -> Maybe (String, RpcArgs)
-parseRpcCall doc = case fromXml doc of
+parseRpcCall doc = case fromXml (unEscapeDoc doc) of
   Right (XR.MethodCall (XR.MethodName method) mArgs) ->
     Just . (,) method $ case mArgs of
       Just (XR.Params params) -> flattenParams params
@@ -63,6 +63,9 @@ parseRpcCall doc = case fromXml doc of
                 : ps
                 ) = (key, val) : flattenParams ps
   flattenParams _ = error "args not in named-value format"
+
+unEscapeDoc :: Document i -> Document i
+unEscapeDoc (Document p s e m) = Document p s (xmlUnEscape stdXmlEscaper e) m
 
 hookCall :: Document ()
 hookCall = toXml False . XR.MethodCall (XR.MethodName "hook") . Just .
