@@ -85,8 +85,11 @@ rpcHtmlize args = XRI.renderResponse . XRI.Return . XRI.ValueString .
   htmlize $ mdwn
   where Just (XR.Value_AString (XR.AString mdwn)) = lookup "content" args
 
+-- The 'mdwn' binding is mandatory.  If we write this function point-free, GHC
+-- floats the 'P.readMarkdown readOpts' into a CAF, and for some reason that
+-- leaks memory like crazy.
 htmlize :: String -> String
-htmlize = either (error . show) T.unpack . P.runPure .
+htmlize mdwn = either (error . show) T.unpack . P.runPure .
   (P.writeHtml5String P.def =<<) . P.readMarkdown readOpts . T.pack .
-  filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f'))
+  filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f')) $ mdwn
   where readOpts = P.def {P.readerExtensions = P.pandocExtensions}
