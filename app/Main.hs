@@ -25,6 +25,7 @@ import Text.XML.HaXml.XmlContent (Document (..), fromXml)
 import Text.XML.HaXml.Escape (xmlUnEscape, stdXmlEscaper)
 import qualified Text.Pandoc as P
 import qualified Network.XmlRpc.Internals as XRI
+import qualified Text.Pandoc.Shared as PS
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
 -- the top-level element
@@ -99,6 +100,6 @@ rpcHtmlize args = XRI.renderResponse . XRI.Return . XRI.ValueString .
 -- leaks memory like crazy.
 htmlize :: String -> String
 htmlize mdwn = either (error . show) T.unpack . P.runPure .
-  (P.writeHtml5String P.def =<<) . P.readMarkdown readOpts . T.pack .
-  filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f')) $ mdwn
+  (P.writeHtml5String P.def =<<) . P.readMarkdown readOpts . PS.tabFilter 4 .
+  T.pack . filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f')) $ mdwn
   where readOpts = P.def {P.readerExtensions = P.pandocExtensions}
