@@ -33,6 +33,7 @@ executable fast-pandoc
     , haxr
     , mtl
     , pandoc
+    , pandoc-types
     , polyparse
     , split
     , text

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-full-laziness #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- Pandoc Markdown rendering for IkiWiki, implemented as a "external" (XML-RPC)
 -- plugin.
@@ -26,6 +27,8 @@ import Text.XML.HaXml.Escape (xmlUnEscape, stdXmlEscaper)
 import qualified Text.Pandoc as P
 import qualified Network.XmlRpc.Internals as XRI
 import qualified Text.Pandoc.Shared as PS
+import qualified Text.Pandoc.Definition as PD
+import qualified Text.Pandoc.Walk as PW
 
 -- Modified version of XMLParse.document that doesn't wait for anything after
 -- the top-level element
@@ -100,6 +103,18 @@ rpcHtmlize args = XRI.renderResponse . XRI.Return . XRI.ValueString .
 -- leaks memory like crazy.
 htmlize :: String -> String
 htmlize mdwn = either (error . show) T.unpack . P.runPure .
-  (P.writeHtml5String P.def =<<) . P.readMarkdown readOpts . PS.tabFilter 4 .
-  T.pack . filter (\c -> c `elem` "\t\n\r" || (c>=' ' && c/='\x7f')) $ mdwn
+  (P.writeHtml5String P.def . PW.walk preserveIkiInline =<<) .
+  P.readMarkdown readOpts . PS.tabFilter 4 . T.pack .
+  filter (\c -> c `elem` ("\t\n\r" :: String) || (c>=' ' && c/='\x7f')) $ mdwn
   where readOpts = P.def {P.readerExtensions = P.pandocExtensions}
+
+-- Lines of the form
+--   <div class="inline" id="some_string"></div>
+-- are placeholders inserted and expanded by IkiWiki's `inline` plugin.  They
+-- must be preserved exactly, character-for-character, or else IkiWiki's regex
+-- won't match.  Pandoc normally parses these as Div blocks, which won't do.
+preserveIkiInline :: PD.Block -> PD.Block
+preserveIkiInline (PD.Div (inlineId, ["inline"], []) []) =
+  PD.RawBlock (PD.Format "html") $
+    T.concat ["<div class=\"inline\" id=\"", inlineId, "\"></div>"]
+preserveIkiInline b = b
