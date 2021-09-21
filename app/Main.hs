@@ -13,7 +13,7 @@ module Main (main) where
 
 import XMLParse -- Our slightly modified copy of Text.XML.HaXml.Parse
 
-import System.IO (hFlush, stdout)
+import System.IO (stdin, stdout, hSetEncoding, utf8, hFlush)
 import Text.XML.HaXml.Lex (xmlLex)
 import Text.XML.HaXml.Posn (Posn ())
 import Text.ParserCombinators.Poly.State (stGet)
@@ -47,7 +47,10 @@ bslOut :: [BSL.ByteString] -> IO ()
 bslOut = mapM_ $ (*> hFlush stdout) . BSL8.putStrLn
 
 main :: IO ()
-main = bslOut . plugin =<< rpcIn
+main = do
+  hSetEncoding stdin utf8
+  hSetEncoding stdout utf8
+  bslOut . plugin =<< rpcIn
 
 plugin :: [Document Posn] -> [BSL.ByteString]
 plugin [] = []
