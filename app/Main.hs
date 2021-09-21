@@ -109,7 +109,13 @@ htmlize mdwn = either (error . show) T.unpack . P.runPure .
   (P.writeHtml5String P.def . PW.walk preserveIkiInline =<<) .
   P.readMarkdown readOpts . PS.tabFilter 4 . T.pack .
   filter (\c -> c `elem` ("\t\n\r" :: String) || (c>=' ' && c/='\x7f')) $ mdwn
-  where readOpts = P.def {P.readerExtensions = P.pandocExtensions}
+  where
+  readOpts = P.def
+    { P.readerExtensions =
+        -- Several IkiWiki directives expand to raw HTML blocks.  Any markdown
+        -- inside these blocks is rendered separately.
+        P.disableExtension P.Ext_markdown_in_html_blocks P.pandocExtensions
+    }
 
 -- Lines of the form
 --   <div class="inline" id="some_string"></div>
