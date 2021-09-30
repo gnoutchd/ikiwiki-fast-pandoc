@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           fast-pandoc
+name:           ikiwiki-fast-pandoc
 version:        0.1.0.0
 description:    Faster pandoc plugin for IkiWiki
 author:         Daniel Gnoutcheff
@@ -14,13 +14,13 @@ license:        GPL3
 build-type:     Simple
 extra-source-files:
     README.md
-    ChangeLog.md
+    COPYING
 
 executable fast-pandoc
   main-is: Main.hs
   other-modules:
       XMLParse
-      Paths_fast_pandoc
+      Paths_ikiwiki_fast_pandoc
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall

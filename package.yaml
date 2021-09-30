@@ -1,4 +1,4 @@
-name:                fast-pandoc
+name:                ikiwiki-fast-pandoc
 version:             0.1.0.0
 license:             GPL3
 author:              "Daniel Gnoutcheff"
@@ -7,7 +7,7 @@ copyright:           "2021 Software Freedom Law Center"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
+- COPYING
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
