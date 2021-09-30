@@ -27,7 +27,7 @@ Install git and [Haskell Stack](http://haskellstack.org/), then do:
 
 ```
 git clone git://code.softwarefreedom.org/git/ikiwiki-fast-pandoc
-cd fast-pandoc
+cd ikiwiki-fast-pandoc
 stack build
 ```
 
