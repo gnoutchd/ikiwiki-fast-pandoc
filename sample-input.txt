@@ -1,0 +1,35 @@
+<!-- A sequence of XML-RPC messages similar to what IkiWiki might send to -->
+<!-- fast-pandoc's stdin. -->
+
+<!-- Initalization: IkiWiki calls import(). -->
+<?xml version="1.0"?>
+<methodCall><methodName>import</methodName></methodCall>
+
+<!-- fast-pandoc will issue a hook() call, which IkiWiki will respond to. -->
+<?xml version="1.0"?>
+<methodResponse><params><param><value><nil/></value></param></params></methodResponse>
+
+<!-- IkiWiki will call htmlize() zero or more times. -->
+
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>htmlize</methodName>
+  <params>
+    <param><value><string>content</string></value></param>
+    <param><value><string>This is *test* text!  This is still more test text.  This is even more test text.
+
+This is yet more test text.  This is still even more test text.  This is more test text than anyone ever asked for.</string></value></param>
+</params></methodCall>
+
+<?xml version="1.0"?>
+<methodCall>
+  <methodName>htmlize</methodName>
+  <params>
+    <param><value><string>content</string></value></param>
+    <param><value><string>This is *test* text!  This is still more test text.  This is even more test text.
+
+
+This is text in "quotes", yay!
+
+This is yet more test text.  This is still even more test text.  This is more test text than anyone ever asked for.</string></value></param>
+</params></methodCall>
